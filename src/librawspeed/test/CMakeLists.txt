@@ -24,6 +24,7 @@ endif()
 
 FILE(GLOB RAWSPEED_TESTS_SOURCES
   "../common/CommonTest.cpp"
+  "../common/CpuidTest.cpp"
   "../common/MemoryTest.cpp"
   "../common/PointTest.cpp"
   "../io/EndiannessTest.cpp"
@@ -54,7 +55,8 @@ set(CMAKE_CXX_CLANG_TIDY_SAVE "${CMAKE_CXX_CLANG_TIDY}")
 
 unset(CMAKE_CXX_CLANG_TIDY)
 
-set(UNITTEST_REPORT_PATH "${CMAKE_BINARY_DIR}/unittest-reports/")
+# FIXME: it should be PATH, but then it is escaped, and that breaks gtest
+set(UNITTEST_REPORT_PATH ${CMAKE_BINARY_DIR}/unittest-reports/ CACHE STRING "" FORCE)
 file(MAKE_DIRECTORY "${UNITTEST_REPORT_PATH}")
 
 foreach(IN ${RAWSPEED_TESTS_SOURCES})

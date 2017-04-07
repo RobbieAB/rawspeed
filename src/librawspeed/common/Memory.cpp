@@ -41,7 +41,7 @@ extern "C" {
 #include <cstdlib> // for posix_memalign / aligned_alloc / malloc; free
 #endif
 
-namespace RawSpeed {
+namespace rawspeed {
 
 void* alignedMalloc(size_t size, size_t alignment) {
   assert(isPowerOfTwo(alignment)); // for posix_memalign, _aligned_malloc
@@ -93,4 +93,15 @@ void alignedFree(void* ptr) {
 #endif
 }
 
-} // Namespace RawSpeed
+void alignedFreeConstPtr(const void* ptr) {
+// an exception, specified by EXP05-C-EX1 and EXP55-CPP-EX1
+#if defined(HAVE_MM_MALLOC)
+  _mm_free(const_cast<void*>(ptr));
+#elif defined(HAVE_ALIGNED_MALLOC)
+  _aligned_free(const_cast<void*>(ptr));
+#else
+  free(const_cast<void*>(ptr));
+#endif
+}
+
+} // namespace rawspeed

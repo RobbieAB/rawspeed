@@ -31,9 +31,10 @@
 #include "tiff/TiffEntry.h"                         // for TiffEntry
 #include "tiff/TiffIFD.h"                           // for TiffRootIFD
 #include "tiff/TiffTag.h"                           // for TiffTag::COMPRES...
+#include <cassert>                                  // for assert
 #include <memory>                                   // for unique_ptr
 
-namespace RawSpeed {
+namespace rawspeed {
 
 RawImage KdcDecoder::decodeRawInternal() {
   if (!mRootIFD->hasEntryRecursive(COMPRESSION))
@@ -56,6 +57,8 @@ RawImage KdcDecoder::decodeRawInternal() {
   TiffEntry *offset = mRootIFD->getEntryRecursive(KODAK_KDC_OFFSET);
   if (!offset || offset->count < 13)
     ThrowRDE("Couldn't find the KDC offset");
+
+  assert(offset != nullptr);
   uint32 off = offset->getU32(4) + offset->getU32(12);
 
   // Offset hardcoding gotten from dcraw
@@ -102,11 +105,17 @@ void KdcDecoder::decodeMetaDataInternal(const CameraMetaData* meta) {
   if (mRootIFD->hasEntryRecursive(KODAKWB)) {
     TiffEntry *wb = mRootIFD->getEntryRecursive(KODAKWB);
     if (wb->count == 734 || wb->count == 1502) {
-      mRaw->metadata.wbCoeffs[0] = (float)((((ushort16) wb->getByte(148))<<8)|wb->getByte(149))/256.0f;
-      mRaw->metadata.wbCoeffs[1] = 1.0f;
-      mRaw->metadata.wbCoeffs[2] = (float)((((ushort16) wb->getByte(150))<<8)|wb->getByte(151))/256.0f;
+      mRaw->metadata.wbCoeffs[0] =
+          static_cast<float>(((static_cast<ushort16>(wb->getByte(148))) << 8) |
+                             wb->getByte(149)) /
+          256.0F;
+      mRaw->metadata.wbCoeffs[1] = 1.0F;
+      mRaw->metadata.wbCoeffs[2] =
+          static_cast<float>(((static_cast<ushort16>(wb->getByte(150))) << 8) |
+                             wb->getByte(151)) /
+          256.0F;
     }
   }
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

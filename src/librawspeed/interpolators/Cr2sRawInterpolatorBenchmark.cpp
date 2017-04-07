@@ -29,12 +29,12 @@
 #include <cstddef>                             // for size_t
 #include <type_traits>                         // for integral_constant
 
-using RawSpeed::Cr2sRawInterpolator;
-using RawSpeed::RawImage;
-using RawSpeed::TYPE_USHORT16;
-using RawSpeed::iPoint2D;
-using RawSpeed::roundUp;
-using RawSpeed::ushort16;
+using rawspeed::Cr2sRawInterpolator;
+using rawspeed::RawImage;
+using rawspeed::TYPE_USHORT16;
+using rawspeed::iPoint2D;
+using rawspeed::roundUp;
+using rawspeed::ushort16;
 using std::array;
 using std::integral_constant;
 using std::sqrt;
@@ -42,14 +42,15 @@ using std::sqrt;
 static inline iPoint2D __attribute__((const))
 areaToRectangle(size_t area, iPoint2D aspect = {2, 2}) {
   double sqSide = sqrt(area);
-  double sqARatio = sqrt((double)aspect.x / (double)aspect.y);
+  double sqARatio =
+      sqrt(static_cast<double>(aspect.x) / static_cast<double>(aspect.y));
 
   iPoint2D dim(ceil(sqSide * sqARatio), ceil(sqSide / sqARatio));
 
   dim.x = roundUp(dim.x, aspect.x);
   dim.y = roundUp(dim.y, aspect.y);
 
-  assert(dim.area() >= area && (dim.area() <= 1.01 * area));
+  assert(dim.area() >= area);
 
   return dim;
 }
@@ -78,10 +79,11 @@ static inline void BM_Cr2sRawInterpolator(benchmark::State& state) {
 static inline void CustomArguments(benchmark::internal::Benchmark* b) {
   b->RangeMultiplier(2);
 #if 1
-  b->Arg(256 << 20)->Unit(benchmark::kMillisecond);
+  b->Arg(256 << 20);
 #else
   b->Range(1, 1024 << 20)->Complexity(benchmark::oN);
 #endif
+  b->Unit(benchmark::kMillisecond);
 }
 
 static constexpr const iPoint2D S422(2, 1);

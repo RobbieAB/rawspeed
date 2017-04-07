@@ -30,7 +30,7 @@
 #include <utility>                        // for move
 #include <vector>                         // for vector
 
-namespace RawSpeed {
+namespace rawspeed {
 
 void AbstractLJpegDecompressor::decode() {
   if (getNextMarker(false) != M_SOI)
@@ -46,6 +46,7 @@ void AbstractLJpegDecompressor::decode() {
     case M_SOS:  parseSOS(); break;
     case M_DQT:
       ThrowRDE("Not a valid RAW file.");
+      break;
     default:  // Just let it skip to next marker
       break;
     }
@@ -181,7 +182,7 @@ JpegMarker AbstractLJpegDecompressor::getNextMarker(bool allowskip) {
   if (!(c0 == 0xFF && c1 != 0 && c1 != 0xFF))
     ThrowRDE("(Noskip) Expected marker not found. Propably corrupt file.");
 
-  return (JpegMarker)c1;
+  return static_cast<JpegMarker>(c1);
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

@@ -1,8 +1,7 @@
 /*
     RawSpeed - RAW file decoder.
 
-    Copyright (C) 2009-2014 Klaus Post
-    Copyright (C) 2014 Pedro Côrte-Real
+    Copyright (C) 2017 Roman Lebedev
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -21,29 +20,11 @@
 
 #pragma once
 
-#include "parsers/RawParser.h" // for RawParser
-#include "tiff/CiffIFD.h"      // for CiffIFD
-#include <memory>              // for unique_ptr
-
 namespace rawspeed {
 
-class Buffer;
-
-class RawDecoder;
-
-class CiffParser final : public RawParser {
+class Cpuid final {
 public:
-  explicit CiffParser(Buffer* input);
-
-  void parseData();
-  RawDecoder* getDecoder();
-  /* Returns the Root IFD - this object still retains ownership */
-  CiffIFD* RootIFD() const { return mRootIFD.get(); }
-  /* Merges root of other CIFF into this - clears the root of the other */
-  void MergeIFD(CiffParser* other_ciff);
-
-protected:
-  std::unique_ptr<CiffIFD> mRootIFD;
+  static bool __attribute((const)) SSE2();
 };
 
 } // namespace rawspeed

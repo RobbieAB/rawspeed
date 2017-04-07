@@ -33,7 +33,7 @@
 #include <pthread.h>
 #endif
 
-namespace RawSpeed {
+namespace rawspeed {
 
 class RawImage;
 
@@ -125,7 +125,7 @@ public:
   void destroyData();
   void blitFrom(const RawImage& src, const iPoint2D& srcPos,
                 const iPoint2D& size, const iPoint2D& destPos);
-  RawSpeed::RawImageType getDataType() const { return dataType; }
+  rawspeed::RawImageType getDataType() const { return dataType; }
   uchar8* getData();
   uchar8* getData(uint32 x, uint32 y);    // Not super fast, but safe. Don't use per pixel.
   uchar8* getDataUncropped(uint32 x, uint32 y);
@@ -282,13 +282,13 @@ inline RawImage RawImage::create(const iPoint2D &dim, RawImageType type,
 // a value that will be used to store a random counter that can be reused between calls.
 // this needs to be inline to speed up tight decompressor loops
 inline void RawImageDataU16::setWithLookUp(ushort16 value, uchar8* dst, uint32* random) {
-  auto *dest = (ushort16 *)dst;
+  auto* dest = reinterpret_cast<ushort16*>(dst);
   if (table == nullptr) {
     *dest = value;
     return;
   }
   if (table->dither) {
-    auto* t = (const uint32*)table->tables;
+    auto* t = reinterpret_cast<const uint32*>(table->tables);
     uint32 lookup = t[value];
     uint32 base = lookup & 0xffff;
     uint32 delta = lookup >> 16;
@@ -299,8 +299,8 @@ inline void RawImageDataU16::setWithLookUp(ushort16 value, uchar8* dst, uint32* 
     *dest = pix;
     return;
   }
-  auto *t = (ushort16 *)table->tables;
+  auto* t = table->tables;
   *dest = t[value];
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

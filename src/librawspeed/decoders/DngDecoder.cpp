@@ -31,7 +31,6 @@
 #include "metadata/Camera.h"              // for Camera
 #include "metadata/CameraMetaData.h"      // for CameraMetaData
 #include "metadata/ColorFilterArray.h"    // for CFAColor, ColorFilterArray
-#include "parsers/TiffParserException.h"  // for TiffParserException
 #include "tiff/TiffEntry.h"               // for TiffEntry, TiffDataType::T...
 #include "tiff/TiffIFD.h"                 // for TiffIFD, TiffRootIFD, TiffID
 #include "tiff/TiffTag.h"                 // for TiffTag::UNIQUECAMERAMODEL
@@ -49,7 +48,7 @@ using std::vector;
 using std::map;
 using std::string;
 
-namespace RawSpeed {
+namespace rawspeed {
 
 DngDecoder::DngDecoder(TiffRootIFDOwner&& rootIFD, Buffer* file)
     : AbstractTiffDecoder(move(rootIFD), file) {
@@ -68,16 +67,30 @@ DngDecoder::DngDecoder(TiffRootIFDOwner&& rootIFD, Buffer* file)
 
 void DngDecoder::dropUnsuportedChunks(vector<const TiffIFD*>& data) {
   for (auto i = data.begin(); i != data.end();) {
-    int comp = (*i)->getEntry(COMPRESSION)->getU16();
+    const auto& ifd = *i;
+
+    int comp = ifd->getEntry(COMPRESSION)->getU16();
     bool isSubsampled = false;
-    try {
-      isSubsampled = (*i)->getEntry(NEWSUBFILETYPE)->getU32() &
-                     1; // bit 0 is on if image is subsampled
-    } catch (TiffParserException&) {
+    bool isAlpha = false;
+
+    if (ifd->hasEntry(NEWSUBFILETYPE) &&
+        ifd->getEntry(NEWSUBFILETYPE)->isInt()) {
+      const uint32 NewSubFileType = (*i)->getEntry(NEWSUBFILETYPE)->getU32();
+
+      // bit 0 is on if image is subsampled.
+      // the value itself can be either 1, or 0x10001.
+      // or 5 for "Transparency information for subsampled raw images"
+      isSubsampled = NewSubFileType & (1 << 0);
+
+      // bit 2 is on if image contains transparency information.
+      // the value itself can be either 4 or 5
+      isAlpha = NewSubFileType & (1 << 2);
+
+      assert((NewSubFileType == 0) || isSubsampled || isAlpha);
     }
 
-    // subsampled ?
-    bool supported = !isSubsampled;
+    // normal raw?
+    bool supported = !isSubsampled && !isAlpha;
 
     switch (comp) {
     case 1: // uncompressed
@@ -254,7 +267,7 @@ void DngDecoder::decodeData(const TiffIFD* raw, int compression, uint32 sample_f
     uint32 yPerSlice = raw->hasEntry(ROWSPERSTRIP) ?
           raw->getEntry(ROWSPERSTRIP)->getU32() : mRaw->dim.y;
 
-    if (yPerSlice == 0 || yPerSlice > (uint32)mRaw->dim.y)
+    if (yPerSlice == 0 || yPerSlice > static_cast<uint32>(mRaw->dim.y))
       ThrowRDE("Invalid y per slice");
 
     uint32 offY = 0;
@@ -430,12 +443,12 @@ RawImage DngDecoder::decodeRawInternal() {
     if (false) { // NOLINT else would need preprocessor
       // Test average for bias
       uint32 cw = mRaw->dim.x * mRaw->getCpp();
-      auto *pixels = (ushort16 *)mRaw->getData(0, 500);
-      float avg = 0.0f;
+      auto* pixels = reinterpret_cast<ushort16*>(mRaw->getData(0, 500));
+      float avg = 0.0F;
       for (uint32 x = 0; x < cw; x++) {
-        avg += (float)pixels[x];
+        avg += static_cast<float>(pixels[x]);
       }
-      printf("Average:%f\n", avg/(float)cw);
+      printf("Average:%f\n", avg / static_cast<float>(cw));
     }
   }
 
@@ -482,7 +495,8 @@ void DngDecoder::decodeMetaDataInternal(const CameraMetaData* meta) {
 
   try {
     id = mRootIFD->getID();
-  } catch (RawspeedException&) {
+  } catch (RawspeedException& e) {
+    mRaw->setError(e.what());
     // not all dngs have MAKE/MODEL entries,
     // will be dealt with by using UNIQUECAMERAMODEL below
   }
@@ -517,7 +531,7 @@ void DngDecoder::decodeMetaDataInternal(const CameraMetaData* meta) {
     if (as_shot_neutral->count == 3) {
       for (uint32 i = 0; i < 3; i++) {
         float c = as_shot_neutral->getFloat(i);
-        mRaw->metadata.wbCoeffs[i] = (c != 0.0f) ? (1.0f / c) : 0.0f;
+        mRaw->metadata.wbCoeffs[i] = (c > 0.0F) ? (1.0F / c) : 0.0F;
       }
     }
   } else if (mRootIFD->hasEntryRecursive(ASSHOTWHITEXY)) {
@@ -606,7 +620,7 @@ bool DngDecoder::decodeBlackLevels(const TiffIFD* raw) {
     return false;
 
   TiffEntry* black_entry = raw->getEntry(BLACKLEVEL);
-  if ((int)black_entry->count < blackdim.x*blackdim.y)
+  if (static_cast<int>(black_entry->count) < blackdim.x * blackdim.y)
     ThrowRDE("BLACKLEVEL entry is too small");
 
   if (blackdim.x < 2 || blackdim.y < 2) {
@@ -626,26 +640,28 @@ bool DngDecoder::decodeBlackLevels(const TiffIFD* raw) {
   // DNG Spec says we must add black in deltav and deltah
   if (raw->hasEntry(BLACKLEVELDELTAV)) {
     TiffEntry *blackleveldeltav = raw->getEntry(BLACKLEVELDELTAV);
-    if ((int)blackleveldeltav->count < mRaw->dim.y)
+    if (static_cast<int>(blackleveldeltav->count) < mRaw->dim.y)
       ThrowRDE("BLACKLEVELDELTAV array is too small");
-    float black_sum[2] = {0.0f, 0.0f};
+    float black_sum[2] = {0.0F, 0.0F};
     for (int i = 0; i < mRaw->dim.y; i++)
       black_sum[i&1] += blackleveldeltav->getFloat(i);
 
     for (int i = 0; i < 4; i++)
-      mRaw->blackLevelSeparate[i] += (int)(black_sum[i>>1] / (float)mRaw->dim.y * 2.0f);
+      mRaw->blackLevelSeparate[i] += static_cast<int>(
+          black_sum[i >> 1] / static_cast<float>(mRaw->dim.y) * 2.0F);
   }
 
   if (raw->hasEntry(BLACKLEVELDELTAH)){
     TiffEntry *blackleveldeltah = raw->getEntry(BLACKLEVELDELTAH);
-    if ((int)blackleveldeltah->count < mRaw->dim.x)
+    if (static_cast<int>(blackleveldeltah->count) < mRaw->dim.x)
       ThrowRDE("BLACKLEVELDELTAH array is too small");
-    float black_sum[2] = {0.0f, 0.0f};
+    float black_sum[2] = {0.0F, 0.0F};
     for (int i = 0; i < mRaw->dim.x; i++)
       black_sum[i&1] += blackleveldeltah->getFloat(i);
 
     for (int i = 0; i < 4; i++)
-      mRaw->blackLevelSeparate[i] += (int)(black_sum[i&1] / (float)mRaw->dim.x * 2.0f);
+      mRaw->blackLevelSeparate[i] += static_cast<int>(
+          black_sum[i & 1] / static_cast<float>(mRaw->dim.x) * 2.0F);
   }
   return true;
 }
@@ -662,4 +678,4 @@ void DngDecoder::setBlack(const TiffIFD* raw) {
   if (raw->hasEntry(BLACKLEVEL))
     decodeBlackLevels(raw);
 }
-} // namespace RawSpeed
+} // namespace rawspeed

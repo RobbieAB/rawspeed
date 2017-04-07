@@ -36,7 +36,7 @@ using std::string;
 using std::map;
 using pugi::xml_node;
 
-namespace RawSpeed {
+namespace rawspeed {
 
 Camera::Camera(pugi::xml_node &camera) : cfa(iPoint2D(0,0)) {
   make = canonical_make = camera.attribute("make").as_string();
@@ -102,7 +102,7 @@ void Camera::parseCFA(const xml_node &cur) {
                    make.c_str(), model.c_str());
         }
         string key = c.child_value();
-        if ((int)key.size() != cfa.getSize().x) {
+        if (static_cast<int>(key.size()) != cfa.getSize().x) {
           ThrowCME("Invalid number of colors in definition for row %d in "
                    "camera %s %s. Expected %d, found %zu.",
                    y, make.c_str(), model.c_str(), cfa.getSize().x, key.size());
@@ -112,13 +112,13 @@ void Camera::parseCFA(const xml_node &cur) {
           CFAColor c2;
 
           try {
-            c2 = char2enum.at((char)tolower(c1));
+            c2 = char2enum.at(static_cast<char>(tolower(c1)));
           } catch (std::out_of_range&) {
             ThrowCME("Invalid color in CFA array of camera %s %s: %c",
                      make.c_str(), model.c_str(), c1);
           }
 
-          cfa.setColorAt(iPoint2D((int)x, y), c2);
+          cfa.setColorAt(iPoint2D(static_cast<int>(x), y), c2);
         }
       } else if (name(c) == "Color") {
         int x = c.attribute("x").as_int(-1);
@@ -254,15 +254,10 @@ void Camera::parseSensor(const xml_node &cur) {
   if (name(cur) != "Sensor")
     ThrowCME("Not an Sensor node!");
 
-  auto stringToListOfInts = [this, &cur](const char *attribute) {
+  auto stringToListOfInts = [&cur](const char* attribute) {
     vector<int> ret;
-    try {
-      for (const string& s : splitString(cur.attribute(attribute).as_string()))
-        ret.push_back(stoi(s));
-    } catch (...) {
-      ThrowCME("Error parsing attribute %s in tag %s, in camera %s %s.",
-               attribute, cur.name(), make.c_str(), model.c_str());
-    }
+    for (const string& s : splitString(cur.attribute(attribute).as_string()))
+      ret.push_back(stoi(s));
     return ret;
   };
 
@@ -328,4 +323,4 @@ const CameraSensorInfo* Camera::getSensorInfo(int iso) const {
   return candidates.front();
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

@@ -32,7 +32,7 @@
 #include <string>                        // for string
 #include <vector>                        // for vector
 
-namespace RawSpeed {
+namespace rawspeed {
 
 class TiffEntry;
 
@@ -114,7 +114,7 @@ inline bool isTiffInNativeByteOrder(const ByteStream& bs, uint32 pos, const char
 }
 
 inline Endianness getTiffEndianness(const Buffer* file) {
-  ushort16 magic = *(const ushort16*)file->getData(0, 2);
+  ushort16 magic = *reinterpret_cast<const ushort16*>(file->getData(0, 2));
   if (magic == 0x4949)
     return little;
   if (magic == 0x4d4d)
@@ -123,4 +123,4 @@ inline Endianness getTiffEndianness(const Buffer* file) {
   ThrowTPE("Failed to parse TIFF endianess information.");
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

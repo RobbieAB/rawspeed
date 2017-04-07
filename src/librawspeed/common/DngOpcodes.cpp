@@ -33,7 +33,7 @@
 using std::vector;
 using std::fill_n;
 
-namespace RawSpeed {
+namespace rawspeed {
 
 class DngOpcodes::DngOpcode {
 public:
@@ -41,7 +41,9 @@ public:
 
   // Will be called once before processing.
   // Can be used for preparing pre-calculated values, etc.
-  virtual void setup(const RawImage& ri) {}
+  virtual void setup(const RawImage& ri) {
+    // NOP by default. child class shall override this if needed.
+  }
 
   // Will be called for actual processing.
   virtual void apply(RawImage& ri) = 0;
@@ -71,7 +73,7 @@ public:
     iPoint2D crop = ri->getCropOffset();
     uint32 offset = crop.x | (crop.y << 16);
     for (auto y = 0; y < ri->dim.y; ++y) {
-      auto* src = (ushort16*)ri->getData(0, y);
+      auto* src = reinterpret_cast<ushort16*>(ri->getData(0, y));
       for (auto x = 0; x < ri->dim.x; ++x) {
         if (src[x] == value)
           ri->mBadPixelPositions.push_back(offset + (y << 16 | x));
@@ -92,14 +94,14 @@ public:
     auto badRectCount = bs.getU32();
 
     // Read points
-    for (auto i = 0u; i < badPointCount; ++i) {
+    for (auto i = 0U; i < badPointCount; ++i) {
       auto y = bs.getU32();
       auto x = bs.getU32();
       badPixels.push_back(y << 16 | x);
     }
 
     // Read rects
-    for (auto i = 0u; i < badRectCount; ++i) {
+    for (auto i = 0U; i < badRectCount; ++i) {
       auto top = bs.getU32();
       auto left = bs.getU32();
       auto bottom = bs.getU32();
@@ -181,11 +183,11 @@ protected:
   template <typename T, typename OP> void applyOP(RawImage& ri, OP op) {
     int cpp = ri->getCpp();
     for (auto y = top; y < bottom; y += rowPitch) {
-      auto* src = (T*)ri->getData(0, y);
+      auto* src = reinterpret_cast<T*>(ri->getData(0, y));
       // Add offset, so this is always first plane
       src += firstPlane;
       for (auto x = left; x < right; x += colPitch) {
-        for (auto p = 0u; p < planes; ++p)
+        for (auto p = 0U; p < planes; ++p)
           src[x * cpp + p] = op(x, y, src[x * cpp + p]);
       }
     }
@@ -222,7 +224,7 @@ public:
     if (count == 0 || count > 65536)
       ThrowRDE("Invalid size of lookup table");
 
-    for (auto i = 0u; i < count; ++i)
+    for (auto i = 0U; i < count; ++i)
       lookup[i] = bs.getU16();
 
     if (count < lookup.size())
@@ -247,11 +249,11 @@ public:
 
     // Create lookup
     lookup.resize(65536);
-    for (auto i = 0u; i < lookup.size(); ++i) {
+    for (auto i = 0U; i < lookup.size(); ++i) {
       double val = polynomial[0];
       for (auto j = 1u; j < polynomial.size(); ++j)
         val += polynomial[j] * pow(i / 65536.0, j);
-      lookup[i] = (clampBits((int)(val * 65535.5), 16));
+      lookup[i] = (clampBits(static_cast<int>(val * 65535.5), 16));
     }
   }
 };
@@ -280,7 +282,7 @@ protected:
 
     deltaI.reserve(deltaF.size());
     for (auto f : deltaF)
-      deltaI.emplace_back((int)(f2iScale * f));
+      deltaI.emplace_back(static_cast<int>(f2iScale * f));
   }
 };
 
@@ -290,7 +292,7 @@ template <typename S>
 class DngOpcodes::OffsetPerRowOrCol final : public DeltaRowOrColBase {
 public:
   explicit OffsetPerRowOrCol(ByteStream& bs)
-      : DeltaRowOrColBase(bs, 65535.0f) {}
+      : DeltaRowOrColBase(bs, 65535.0F) {}
 
   void apply(RawImage& ri) override {
     if (ri->getDataType() == TYPE_USHORT16) {
@@ -308,7 +310,7 @@ public:
 template <typename S>
 class DngOpcodes::ScalePerRowOrCol final : public DeltaRowOrColBase {
 public:
-  explicit ScalePerRowOrCol(ByteStream& bs) : DeltaRowOrColBase(bs, 1024.0f) {}
+  explicit ScalePerRowOrCol(ByteStream& bs) : DeltaRowOrColBase(bs, 1024.0F) {}
 
   void apply(RawImage& ri) override {
     if (ri->getDataType() == TYPE_USHORT16) {
@@ -337,7 +339,7 @@ DngOpcodes::DngOpcodes(TiffEntry* entry) {
   using ScalePerCol = ScalePerRowOrCol<DeltaRowOrColBase::SelectX>;
 
   auto opcode_count = bs.getU32();
-  for (auto i = 0u; i < opcode_count; i++) {
+  for (auto i = 0U; i < opcode_count; i++) {
     auto code = bs.getU32();
     bs.getU32(); // ignore version
     auto flags = bs.getU32();
@@ -392,4 +394,4 @@ void DngOpcodes::applyOpCodes(RawImage& ri) {
   }
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

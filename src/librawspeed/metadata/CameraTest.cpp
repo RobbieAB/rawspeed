@@ -24,9 +24,9 @@
 
 using std::string;
 using std::to_string;
-using RawSpeed::Hints;
+using rawspeed::Hints;
 
-namespace RawSpeedTest {
+namespace rawspeed_test {
 
 TEST(CameraTest, HintsEmpty) {
   Hints hints;
@@ -103,7 +103,7 @@ TEST(CameraTest, HintsUInt) {
   ASSERT_FALSE(hints.has(key));
   hints.add(key, value);
   ASSERT_TRUE(hints.has(key));
-  ASSERT_EQ(hints.get(key, 0u), val);
+  ASSERT_EQ(hints.get(key, 0U), val);
 }
 
 TEST(CameraTest, HintsFloat) {
@@ -113,7 +113,7 @@ TEST(CameraTest, HintsFloat) {
   ASSERT_FALSE(hints.has(key));
   hints.add(key, value);
   ASSERT_TRUE(hints.has(key));
-  ASSERT_EQ(hints.get(key, 0.0f), val);
+  ASSERT_EQ(hints.get(key, 0.0F), val);
 }
 
 TEST(CameraTest, HintsDouble) {
@@ -154,4 +154,4 @@ TEST_P(BoolHintTest, HintsBool) {
   ASSERT_FALSE(hints.get(key, true));
 }
 
-} // namespace RawSpeedTest
+} // namespace rawspeed_test

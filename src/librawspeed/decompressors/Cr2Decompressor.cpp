@@ -31,7 +31,7 @@
 
 using std::copy_n;
 
-namespace RawSpeed {
+namespace rawspeed {
 
 void Cr2Decompressor::decodeScan()
 {
@@ -94,7 +94,7 @@ void Cr2Decompressor::decodeN_X_Y()
 {
   auto ht = getHuffmanTables<N_COMP>();
   auto pred = getInitialPredictors<N_COMP>();
-  auto predNext = (ushort16*)mRaw->getDataUncropped(0, 0);
+  auto predNext = reinterpret_cast<ushort16*>(mRaw->getDataUncropped(0, 0));
 
   BitPumpJPEG bitStream(input);
 
@@ -139,9 +139,10 @@ void Cr2Decompressor::decodeN_X_Y()
       unsigned destY = processedLineSlices % mRaw->dim.y;
       unsigned destX =
           processedLineSlices / mRaw->dim.y * slicesWidths[0] / mRaw->getCpp();
-      if (destX >= (unsigned)mRaw->dim.x)
+      if (destX >= static_cast<unsigned>(mRaw->dim.x))
         break;
-      auto dest = (ushort16*)mRaw->getDataUncropped(destX, destY);
+      auto dest =
+          reinterpret_cast<ushort16*>(mRaw->getDataUncropped(destX, destY));
 
       for (unsigned x = 0; x < sliceWidth; x += xStepSize) {
         // check if we processed one full raw row worth of pixels
@@ -177,4 +178,4 @@ void Cr2Decompressor::decodeN_X_Y()
   input.skipBytes(bitStream.getBufferPosition());
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

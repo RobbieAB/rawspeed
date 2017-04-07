@@ -37,7 +37,7 @@
 
 using std::numeric_limits;
 
-namespace RawSpeed {
+namespace rawspeed {
 
 class RawDecoder;
 
@@ -105,7 +105,7 @@ RawDecoder* FiffParser::getDecoder() {
 
         uint32 count = type == TIFF_SHORT ? length / 2 : length;
         subIFD->add(make_unique<TiffEntry>(
-            subIFD.get(), (TiffTag)tag, type, count,
+            subIFD.get(), static_cast<TiffTag>(tag), type, count,
             bytes.getSubStream(bytes.getPosition(), length)));
 
         bytes.skipBytes(length);
@@ -120,4 +120,4 @@ RawDecoder* FiffParser::getDecoder() {
   }
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

@@ -23,7 +23,7 @@
 
 #include <algorithm> // for max, min
 
-namespace RawSpeed {
+namespace rawspeed {
 
 class iPoint2D {
 public:
@@ -68,7 +68,8 @@ public:
   }
 
   constexpr unsigned int area() const {
-    return ((long)x * y) > 0 ? ((long)x * y) : -((long)x * y);
+    return (static_cast<long>(x) * y) > 0 ? (static_cast<long>(x) * y)
+                                          : -(static_cast<long>(x) * y);
   }
 
   constexpr bool isThisInside(const iPoint2D& rhs) const {
@@ -193,4 +194,4 @@ public:
   iPoint2D dim{0, 0};
 };
 
-} // namespace RawSpeed
+} // namespace rawspeed

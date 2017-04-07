@@ -30,12 +30,13 @@
 #include "tiff/TiffEntry.h"               // for TiffEntry, TiffDataType::T...
 #include "tiff/TiffIFD.h"                 // for TiffRootIFD, TiffIFD
 #include "tiff/TiffTag.h"                 // for TiffTag, TiffTag::CFAPATTERN
+#include <cassert>                        // for assert
 #include <memory>                         // for unique_ptr
 #include <vector>                         // for vector
 
 using std::min;
 
-namespace RawSpeed {
+namespace rawspeed {
 
 class CameraMetaData;
 
@@ -62,13 +63,17 @@ RawImage DcrDecoder::decodeRawInternal() {
     TiffEntry *ifdoffset = mRootIFD->getEntryRecursive(KODAK_IFD);
     if (!ifdoffset)
       ThrowRDE("Couldn't find the Kodak IFD offset");
+
+    assert(ifdoffset != nullptr);
     TiffRootIFD kodakifd(nullptr, ifdoffset->getRootIfdData(),
                          ifdoffset->getU32());
-    TiffEntry *linearization = kodakifd.getEntryRecursive(KODAK_LINEARIZATION);
-    if (!linearization || linearization->count != 1024 || linearization->type != TIFF_SHORT) {
-      ThrowRDE("Couldn't find the linearization table");
-    }
 
+    TiffEntry *linearization = kodakifd.getEntryRecursive(KODAK_LINEARIZATION);
+    if (!linearization || linearization->count != 1024 ||
+        linearization->type != TIFF_SHORT)
+      ThrowRDE("Couldn't find the linearization table");
+
+    assert(linearization != nullptr);
     auto linTable = linearization->getU16Array(1024);
 
     if (!uncorrectedRawValues)
@@ -78,11 +83,11 @@ RawImage DcrDecoder::decodeRawInternal() {
     //        WB from what appear to be presets and calculate it in weird ways
     //        The only file I have only uses this method, if anybody careas look
     //        in dcraw.c parse_kodak_ifd() for all that weirdness
-    TiffEntry *blob = kodakifd.getEntryRecursive((TiffTag) 0x03fd);
+    TiffEntry* blob = kodakifd.getEntryRecursive(static_cast<TiffTag>(0x03fd));
     if (blob && blob->count == 72) {
-      mRaw->metadata.wbCoeffs[0] = (float) 2048.0f / blob->getU16(20);
-      mRaw->metadata.wbCoeffs[1] = (float) 2048.0f / blob->getU16(21);
-      mRaw->metadata.wbCoeffs[2] = (float) 2048.0f / blob->getU16(22);
+      mRaw->metadata.wbCoeffs[0] = 2048.0F / blob->getU16(20);
+      mRaw->metadata.wbCoeffs[1] = 2048.0F / blob->getU16(21);
+      mRaw->metadata.wbCoeffs[2] = 2048.0F / blob->getU16(22);
     }
 
     try {
@@ -111,7 +116,7 @@ void DcrDecoder::decodeKodak65000(ByteStream &input, uint32 w, uint32 h) {
 
   uint32 random = 0;
   for (uint32 y = 0; y < h; y++) {
-    auto *dest = (ushort16 *)&data[y * pitch];
+    auto* dest = reinterpret_cast<ushort16*>(&data[y * pitch]);
     for (uint32 x = 0 ; x < w; x += 256) {
       pred[0] = pred[1] = 0;
       uint32 len = min(256u, w - x);
@@ -123,7 +128,8 @@ void DcrDecoder::decodeKodak65000(ByteStream &input, uint32 w, uint32 h) {
         if(uncorrectedRawValues)
           dest[x+i] = value;
         else
-          mRaw->setWithLookUp(value, (uchar8*)&dest[x+i], &random);
+          mRaw->setWithLookUp(value, reinterpret_cast<uchar8*>(&dest[x + i]),
+                              &random);
       }
     }
   }
@@ -140,19 +146,20 @@ void DcrDecoder::decodeKodak65000Segment(ByteStream &input, ushort16 *out, uint3
     blen[i+1] = input.getByte() >> 4;
   }
   if ((bsize & 7) == 4) {
-    bitbuf = ((uint64)input.getByte()) << 8UL;
-    bitbuf += ((int) input.getByte());
+    bitbuf = (static_cast<uint64>(input.getByte())) << 8UL;
+    bitbuf += (static_cast<int>(input.getByte()));
     bits = 16;
   }
   for (uint32 i=0; i < bsize; i++) {
     uint32 len = blen[i];
     if (bits < len) {
       for (uint32 j=0; j < 32; j+=8) {
-        bitbuf += (long long) ((int) input.getByte()) << (bits+(j^8));
+        bitbuf += static_cast<long long>(static_cast<int>(input.getByte()))
+                  << (bits + (j ^ 8));
       }
       bits += 32;
     }
-    uint32 diff = (uint32)bitbuf & (0xffff >> (16-len));
+    uint32 diff = static_cast<uint32>(bitbuf) & (0xffff >> (16 - len));
     bitbuf >>= len;
     bits -= len;
     diff = len ? HuffmanTable::signExtended(diff, len) : diff;
@@ -164,4 +171,4 @@ void DcrDecoder::decodeMetaDataInternal(const CameraMetaData* meta) {
   setMetaData(meta, "", 0);
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

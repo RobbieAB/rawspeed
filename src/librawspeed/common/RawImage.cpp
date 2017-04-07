@@ -35,7 +35,7 @@ using std::fill_n;
 using std::string;
 using std::min;
 
-namespace RawSpeed {
+namespace rawspeed {
 
 RawImageData::RawImageData() : cfa(iPoint2D(0, 0)) {
   fill_n(blackLevelSeparate, 4, -1);
@@ -93,7 +93,7 @@ void RawImageData::createData() {
     ThrowRDE("Duplicate data allocation in createData.");
 
   // want each line to start at 16-byte aligned address
-  pitch = roundUp((size_t)dim.x * bpp, alignment);
+  pitch = roundUp(static_cast<size_t>(dim.x) * bpp, alignment);
   assert(isAligned(pitch, alignment));
 
 #if defined(DEBUG) || __has_feature(address_sanitizer) ||                      \
@@ -110,7 +110,7 @@ void RawImageData::createData() {
   assert(padding > 0);
 #endif
 
-  data = (uchar8*)alignedMallocArray<alignment>(dim.y, pitch);
+  data = alignedMallocArray<uchar8, alignment>(dim.y, pitch);
 
   if (!data)
     ThrowRDE("Memory Allocation failed.");
@@ -148,7 +148,11 @@ void RawImageData::poisonPadding() {
   }
 }
 #else
-void __attribute__((const)) RawImageData::poisonPadding() {}
+void __attribute__((const)) RawImageData::poisonPadding() {
+  // if we are building without ASAN, then there is no need/way to poison.
+  // however, i think it is better to have such an empty function rather
+  // than making this whole function not exist in ASAN-less builds
+}
 #endif
 
 #if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
@@ -165,7 +169,11 @@ void RawImageData::unpoisonPadding() {
   }
 }
 #else
-void __attribute__((const)) RawImageData::unpoisonPadding() {}
+void __attribute__((const)) RawImageData::unpoisonPadding() {
+  // if we are building without ASAN, then there is no need/way to poison.
+  // however, i think it is better to have such an empty function rather
+  // than making this whole function not exist in ASAN-less builds
+}
 #endif
 
 void RawImageData::destroyData() {
@@ -198,9 +206,9 @@ uchar8* RawImageData::getData() {
 }
 
 uchar8* RawImageData::getData(uint32 x, uint32 y) {
-  if ((int)x >= dim.x)
+  if (static_cast<int>(x) >= dim.x)
     ThrowRDE("X Position outside image requested.");
-  if ((int)y >= dim.y) {
+  if (static_cast<int>(y) >= dim.y) {
     ThrowRDE("Y Position outside image requested.");
   }
 
@@ -210,23 +218,23 @@ uchar8* RawImageData::getData(uint32 x, uint32 y) {
   if (!data)
     ThrowRDE("Data not yet allocated.");
 
-  return &data[y*pitch+x*bpp];
+  return &data[static_cast<size_t>(y) * pitch + x * bpp];
 }
 
 uchar8* RawImageData::getDataUncropped(uint32 x, uint32 y) {
-  if ((int)x >= uncropped_dim.x)
+  if (static_cast<int>(x) >= uncropped_dim.x)
     ThrowRDE("X Position outside image requested.");
-  if ((int)y >= uncropped_dim.y) {
+  if (static_cast<int>(y) >= uncropped_dim.y) {
     ThrowRDE("Y Position outside image requested.");
   }
 
   if (!data)
     ThrowRDE("Data not yet allocated.");
 
-  return &data[y*pitch+x*bpp];
+  return &data[static_cast<size_t>(y) * pitch + x * bpp];
 }
 
-iPoint2D __attribute__((pure)) RawSpeed::RawImageData::getUncroppedDim() const {
+iPoint2D __attribute__((pure)) rawspeed::RawImageData::getUncroppedDim() const {
   return uncropped_dim;
 }
 
@@ -273,8 +281,9 @@ void RawImageData::createBadPixelMap()
     ThrowRDE("(internal) Bad pixel map cannot be allocated before image.");
   mBadPixelMapPitch = roundUp(uncropped_dim.x / 8, 16);
   mBadPixelMap =
-      (uchar8*)(alignedMallocArray<16>(uncropped_dim.y, mBadPixelMapPitch));
-  memset(mBadPixelMap, 0, (size_t)mBadPixelMapPitch * uncropped_dim.y);
+      alignedMallocArray<uchar8, 16>(uncropped_dim.y, mBadPixelMapPitch);
+  memset(mBadPixelMap, 0,
+         static_cast<size_t>(mBadPixelMapPitch) * uncropped_dim.y);
   if (!mBadPixelMap)
     ThrowRDE("Memory Allocation failed.");
 }
@@ -427,11 +436,12 @@ void RawImageData::fixBadPixelsThread( int start_y, int end_y )
   int bad_count = 0;
 #endif
   for (int y = start_y; y < end_y; y++) {
-    auto* bad_map = (const uint32*)&mBadPixelMap[y * mBadPixelMapPitch];
+    auto* bad_map =
+        reinterpret_cast<const uint32*>(&mBadPixelMap[y * mBadPixelMapPitch]);
     for (int x = 0 ; x < gw; x++) {
       // Test if there is a bad pixel within these 32 pixels
       if (bad_map[x] != 0) {
-        auto* bad = (const uchar8*)&bad_map[x];
+        auto* bad = reinterpret_cast<const uchar8*>(&bad_map[x]);
         // Go through each pixel
         for (int i = 0; i < 4; i++) {
           for (int j = 0; j < 8; j++) {
@@ -501,14 +511,14 @@ void RawImageData::expandBorder(iRectangle2D validData)
     uchar8* src_pos = getData(0, validData.pos.y);
     for (int y = 0; y < validData.pos.y; y++ ) {
       uchar8* dst_pos = getData(0, y);
-      memcpy(dst_pos, src_pos, (size_t)dim.x * bpp);
+      memcpy(dst_pos, src_pos, static_cast<size_t>(dim.x) * bpp);
     }
   }
   if (validData.getBottom() < dim.y) {
     uchar8* src_pos = getData(0, validData.getBottom()-1);
     for (int y = validData.getBottom(); y < dim.y; y++ ) {
       uchar8* dst_pos = getData(0, y);
-      memcpy(dst_pos, src_pos, (size_t)dim.x * bpp);
+      memcpy(dst_pos, src_pos, static_cast<size_t>(dim.x) * bpp);
     }
   }
 }
@@ -521,7 +531,8 @@ void RawImageData::clearArea( iRectangle2D area, uchar8 val /*= 0*/ )
     return;
 
   for (int y = area.getTop(); y < area.getBottom(); y++)
-    memset(getData(area.getLeft(), y), val, (size_t)area.getWidth() * bpp);
+    memset(getData(area.getLeft(), y), val,
+           static_cast<size_t>(area.getWidth()) * bpp);
 }
 
 RawImage& RawImage::operator=(RawImage&& rhs) noexcept {
@@ -566,7 +577,7 @@ RawImage& RawImage::operator=(const RawImage& rhs) noexcept {
 }
 
 void *RawImageWorkerThread(void *_this) {
-  auto *me = (RawImageWorker *)_this;
+  auto* me = static_cast<RawImageWorker*>(_this);
   me->performTask();
   return nullptr;
 }
@@ -705,5 +716,4 @@ ushort16* TableLookUp::getTable(int n) {
   return &tables[n * TABLE_SIZE];
 }
 
-
-} // namespace RawSpeed
+} // namespace rawspeed

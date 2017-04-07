@@ -28,19 +28,20 @@
 #include <string>          // for string
 
 using std::unique_ptr;
-using RawSpeed::char8;
-using RawSpeed::uchar8;
-using RawSpeed::short16;
-using RawSpeed::ushort16;
-using RawSpeed::int32;
-using RawSpeed::uint32;
-using RawSpeed::int64;
-using RawSpeed::uint64;
-using RawSpeed::alignedMalloc;
-using RawSpeed::alignedMallocArray;
-using RawSpeed::alignedFree;
+using rawspeed::char8;
+using rawspeed::uchar8;
+using rawspeed::short16;
+using rawspeed::ushort16;
+using rawspeed::int32;
+using rawspeed::uint32;
+using rawspeed::int64;
+using rawspeed::uint64;
+using rawspeed::alignedMalloc;
+using rawspeed::alignedMallocArray;
+using rawspeed::alignedFree;
+using rawspeed::alignedFreeConstPtr;
 
-namespace RawSpeedTest {
+namespace rawspeed_test {
 
 static constexpr const size_t alloc_alignment = 16;
 
@@ -96,6 +97,17 @@ TYPED_TEST(AlignedMallocTest, BasicTest) {
     this->TheTest(ptr);
     alignedFree(ptr);
   });
+  ASSERT_NO_THROW({
+    const TypeParam* forFree = nullptr;
+    {
+      TypeParam* ptr =
+          (TypeParam*)alignedMalloc(this->alloc_size, alloc_alignment);
+      this->TheTest(ptr);
+      forFree = const_cast<const TypeParam*>(ptr);
+      ptr = nullptr;
+    }
+    alignedFreeConstPtr(forFree);
+  });
 }
 
 TYPED_TEST(AlignedMallocTest, UniquePtrTest) {
@@ -142,12 +154,18 @@ TEST(AlignedMallocDeathTest, AlignedFreeHandlesNullptr) {
         exit(0);
       },
       ::testing::ExitedWithCode(0), "");
+  ASSERT_EXIT(
+      {
+        alignedFreeConstPtr(nullptr);
+        exit(0);
+      },
+      ::testing::ExitedWithCode(0), "");
 }
 
 TYPED_TEST(AlignedMallocTest, TemplateTest) {
   ASSERT_NO_THROW({
     TypeParam* ptr =
-        (TypeParam*)alignedMalloc<alloc_alignment>(this->alloc_size);
+        (alignedMalloc<TypeParam, alloc_alignment>(this->alloc_size));
     this->TheTest(ptr);
     alignedFree(ptr);
   });
@@ -155,15 +173,14 @@ TYPED_TEST(AlignedMallocTest, TemplateTest) {
 
 TYPED_TEST(AlignedMallocTest, TemplatUniquePtrTest) {
   unique_ptr<TypeParam[], decltype(&alignedFree)> ptr(
-      (TypeParam*)alignedMalloc<alloc_alignment>(this->alloc_size),
-      alignedFree);
+      alignedMalloc<TypeParam, alloc_alignment>(this->alloc_size), alignedFree);
   this->TheTest(&(ptr[0]));
 }
 
 TYPED_TEST(AlignedMallocTest, TemplateArrayTest) {
   ASSERT_NO_THROW({
-    TypeParam* ptr = (TypeParam*)alignedMallocArray<alloc_alignment>(
-        this->alloc_cnt, this->alloc_sizeof);
+    TypeParam* ptr = (alignedMallocArray<TypeParam, alloc_alignment>(
+        this->alloc_cnt, this->alloc_sizeof));
     this->TheTest(ptr);
     alignedFree(ptr);
   });
@@ -174,16 +191,16 @@ TYPED_TEST(AlignedMallocTest, TemplateArrayHandlesOverflowTest) {
     return;
   ASSERT_NO_THROW({
     static const size_t nmemb = 1 + (SIZE_MAX / this->alloc_sizeof);
-    TypeParam* ptr = (TypeParam*)alignedMallocArray<alloc_alignment>(
-        nmemb, this->alloc_sizeof);
+    TypeParam* ptr = (alignedMallocArray<TypeParam, alloc_alignment>(
+        nmemb, this->alloc_sizeof));
     ASSERT_EQ(ptr, nullptr);
   });
 }
 
 TYPED_TEST(AlignedMallocTest, TemplateUniquePtrArrayTest) {
   unique_ptr<TypeParam[], decltype(&alignedFree)> ptr(
-      (TypeParam*)alignedMallocArray<alloc_alignment>(this->alloc_cnt,
-                                                      this->alloc_sizeof),
+      alignedMallocArray<TypeParam, alloc_alignment>(this->alloc_cnt,
+                                                     this->alloc_sizeof),
       alignedFree);
   this->TheTest(&(ptr[0]));
 }
@@ -193,8 +210,8 @@ TYPED_TEST(AlignedMallocDeathTest, TemplateArrayAssertions) {
   // unlike TemplateArrayRoundUp, should fail
   ASSERT_DEATH(
       {
-        TypeParam* ptr = (TypeParam*)alignedMallocArray<alloc_alignment>(
-            1, 1 + sizeof(TypeParam));
+        TypeParam* ptr = (alignedMallocArray<TypeParam, alloc_alignment>(
+            1, 1 + sizeof(TypeParam)));
         alignedFree(ptr);
       },
       "isAligned\\(size\\, alignment\\)");
@@ -204,7 +221,7 @@ TYPED_TEST(AlignedMallocDeathTest, TemplateArrayAssertions) {
 TYPED_TEST(AlignedMallocTest, TemplateArrayRoundUp) {
   // unlike TemplateArrayAssertions, should NOT fail
   ASSERT_NO_THROW({
-    TypeParam* ptr = (TypeParam*)(alignedMallocArray<alloc_alignment, true>(
+    TypeParam* ptr = (alignedMallocArray<TypeParam, alloc_alignment, true>(
         1, 1 + sizeof(TypeParam)));
     alignedFree(ptr);
   });
@@ -212,9 +229,8 @@ TYPED_TEST(AlignedMallocTest, TemplateArrayRoundUp) {
 
 TYPED_TEST(AlignedMallocTest, TemplateArraySizeTest) {
   ASSERT_NO_THROW({
-    TypeParam* ptr =
-        (TypeParam*)(alignedMallocArray<alloc_alignment, TypeParam>(
-            this->alloc_cnt));
+    TypeParam* ptr = (alignedMallocArray<TypeParam, alloc_alignment, TypeParam>(
+        this->alloc_cnt));
     this->TheTest(ptr);
     alignedFree(ptr);
   });
@@ -222,7 +238,7 @@ TYPED_TEST(AlignedMallocTest, TemplateArraySizeTest) {
 
 TYPED_TEST(AlignedMallocTest, TemplateUniquePtrArraySizeTest) {
   unique_ptr<TypeParam[], decltype(&alignedFree)> ptr(
-      (TypeParam*)alignedMallocArray<alloc_alignment, TypeParam>(
+      alignedMallocArray<TypeParam, alloc_alignment, TypeParam>(
           this->alloc_cnt),
       alignedFree);
   this->TheTest(&(ptr[0]));
@@ -233,7 +249,7 @@ TEST(AlignedMallocDeathTest, TemplateArraySizeAssertions) {
   // unlike TemplateArraySizeRoundUp, should fail
   ASSERT_DEATH(
       {
-        uchar8* ptr = (uchar8*)(alignedMallocArray<alloc_alignment, uchar8>(1));
+        uchar8* ptr = (alignedMallocArray<uchar8, alloc_alignment, uchar8>(1));
         alignedFree(ptr);
       },
       "isAligned\\(size\\, alignment\\)");
@@ -244,7 +260,7 @@ TEST(AlignedMallocTest, TemplateArraySizeRoundUp) {
   // unlike TemplateArraySizeAssertions, should NOT fail
   ASSERT_NO_THROW({
     uchar8* ptr =
-        (uchar8*)(alignedMallocArray<alloc_alignment, uchar8, true>(1));
+        (alignedMallocArray<uchar8, alloc_alignment, uchar8, true>(1));
     alignedFree(ptr);
   });
 }
@@ -253,9 +269,9 @@ TYPED_TEST(AlignedMallocTest, TemplateArraySizeRoundUpTest) {
   // unlike TemplateArraySizeAssertions, should NOT fail
   ASSERT_NO_THROW({
     TypeParam* ptr =
-        (TypeParam*)(alignedMallocArray<alloc_alignment, TypeParam, true>(1));
+        (alignedMallocArray<TypeParam, alloc_alignment, TypeParam, true>(1));
     alignedFree(ptr);
   });
 }
 
-} // namespace RawSpeedTest
+} // namespace rawspeed_test

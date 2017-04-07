@@ -36,7 +36,7 @@
 using std::array;
 using std::min;
 
-namespace RawSpeed {
+namespace rawspeed {
 
 // The rest of this file was ported as is from dcraw.c. I don't claim to
 // understand it but have tried my best to make it work safely
@@ -188,7 +188,7 @@ CrwDecompressor::decodeBlock(std::array<int, 64>* diffBuf,
 }
 
 // FIXME: this function is horrible.
-void CrwDecompressor::decompress(RawImage& mRaw, RawSpeed::Buffer* mFile,
+void CrwDecompressor::decompress(RawImage& mRaw, rawspeed::Buffer* mFile,
                                  uint32 dec_table, bool lowbits) {
   assert(mFile);
 
@@ -228,7 +228,7 @@ void CrwDecompressor::decompress(RawImage& mRaw, RawSpeed::Buffer* mFile,
           // new line
           i = 0;
 
-          dest = (ushort16*)mRaw->getData(0, j);
+          dest = reinterpret_cast<ushort16*>(mRaw->getData(0, j));
 
           j++;
           base[0] = base[1] = 512;
@@ -239,7 +239,7 @@ void CrwDecompressor::decompress(RawImage& mRaw, RawSpeed::Buffer* mFile,
         if (base[k & 1] >> 10)
           ThrowRDE("Error decompressing");
 
-        assert(dest);
+        assert(dest != nullptr);
         *dest = base[k & 1];
       }
     }
@@ -263,7 +263,7 @@ void CrwDecompressor::decompress(RawImage& mRaw, RawSpeed::Buffer* mFile,
       uint32 i = 0;
 
       for (uint32 block = 0; block < nBlocks; block++) {
-        auto c = (uint32)lowbitInput.getByte();
+        auto c = static_cast<uint32>(lowbitInput.getByte());
 
         // Process 8 bits in pairs
         for (uint32 r = 0; r < 8; r += 2, i++, dest++) {
@@ -271,17 +271,17 @@ void CrwDecompressor::decompress(RawImage& mRaw, RawSpeed::Buffer* mFile,
             // new line
             i = 0;
 
-            dest = (ushort16*)mRaw->getData(0, j);
+            dest = reinterpret_cast<ushort16*>(mRaw->getData(0, j));
 
             j++;
           }
 
+          assert(dest);
           ushort16 val = (*dest << 2) | ((c >> r) & 0x0003);
 
           if (width == 2672 && val < 512)
             val += 2; // No idea why this is needed
 
-          assert(dest);
           *dest = val;
         }
       }
@@ -289,4 +289,4 @@ void CrwDecompressor::decompress(RawImage& mRaw, RawSpeed::Buffer* mFile,
   }
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

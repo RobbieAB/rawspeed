@@ -28,7 +28,7 @@
 #include <string>          // for string
 #include <vector>          // for vector
 
-namespace RawSpeed {
+namespace rawspeed {
 
 class DataBuffer;
 
@@ -63,9 +63,8 @@ class TiffEntry
 
   friend class TiffIFD;
 
-  template <typename T, T (TiffEntry::* getter)(uint32) const>
-  std::vector<T> getArray(uint32 count_) const
-  {
+  template <typename T, T (TiffEntry::*getter)(uint32 index) const>
+  std::vector<T> getArray(uint32 count_) const {
     std::vector<T> res(count_);
     for (uint32 i = 0; i < count_; ++i)
       res[i] = (this->*getter)(i);
@@ -116,4 +115,4 @@ protected:
   static const uint32 datashifts[];
 };
 
-} // namespace RawSpeed
+} // namespace rawspeed

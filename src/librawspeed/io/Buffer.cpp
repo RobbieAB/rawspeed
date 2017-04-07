@@ -28,14 +28,14 @@
 
 using std::unique_ptr;
 
-namespace RawSpeed {
+namespace rawspeed {
 
 unique_ptr<uchar8, decltype(&alignedFree)> Buffer::Create(size_type size) {
   if (!size)
     ThrowIOE("Trying to allocate 0 bytes sized buffer.");
 
   unique_ptr<uchar8, decltype(&alignedFree)> data(
-      (uchar8*)alignedMalloc<16>(roundUp(size + BUFFER_PADDING, 16)),
+      alignedMalloc<uchar8, 16>(roundUp(size + BUFFER_PADDING, 16)),
       &alignedFree);
   if (!data.get())
     ThrowIOE("Failed to allocate %uz bytes memory buffer.", size);
@@ -50,7 +50,7 @@ Buffer::Buffer(unique_ptr<uchar8, decltype(&alignedFree)> data_,
     ThrowIOE("Buffer has zero size?");
 
   if (data_.get_deleter() != &alignedFree)
-    ThrowIOE("Wrong deleter. Expected RawSpeed::alignedFree()");
+    ThrowIOE("Wrong deleter. Expected rawspeed::alignedFree()");
 
   data = data_.release();
   if (!data)
@@ -63,7 +63,7 @@ Buffer::Buffer(size_type size_) : Buffer(Create(size_), size_) {}
 
 Buffer::~Buffer() {
   if (isOwner) {
-    alignedFree(const_cast<uchar8*>(data));
+    alignedFreeConstPtr(data);
   }
 }
 
@@ -72,7 +72,7 @@ Buffer& Buffer::operator=(Buffer&& rhs) noexcept {
     return *this;
 
   if (isOwner)
-    alignedFree(const_cast<uchar8*>(data));
+    alignedFreeConstPtr(data);
 
   data = rhs.data;
   size = rhs.size;
@@ -116,4 +116,4 @@ void Buffer::corrupt(int errors) {
 }
 #endif
 
-} // namespace RawSpeed
+} // namespace rawspeed

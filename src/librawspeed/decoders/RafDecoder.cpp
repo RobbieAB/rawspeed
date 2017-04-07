@@ -35,13 +35,14 @@
 #include "tiff/TiffEntry.h"                         // for TiffEntry
 #include "tiff/TiffIFD.h"                           // for TiffRootIFD, Tif...
 #include "tiff/TiffTag.h"                           // for TiffTag::FUJIOLDWB
+#include <cassert>                                  // for assert
 #include <cstdio>                                   // for size_t
 #include <cstring>                                  // for memcmp
 #include <memory>                                   // for unique_ptr, allo...
 #include <string>                                   // for string
 #include <vector>                                   // for vector
 
-namespace RawSpeed {
+namespace rawspeed {
 
 bool RafDecoder::isRAF(Buffer* input) {
   static const char magic[] = "FUJIFILMCCD-RAW ";
@@ -134,8 +135,11 @@ void RafDecoder::decodeMetaDataInternal(const CameraMetaData* meta) {
   if (!cam)
     ThrowRDE("Couldn't find camera");
 
+  assert(cam != nullptr);
+
   iPoint2D new_size(mRaw->dim);
   iPoint2D crop_offset = iPoint2D(0,0);
+
   if (applyCrop) {
     new_size = cam->cropSize;
     crop_offset = cam->cropPos;
@@ -145,7 +149,6 @@ void RafDecoder::decodeMetaDataInternal(const CameraMetaData* meta) {
       new_size.x = mRaw->dim.x / (double_width ? 2 : 1) - cam->cropPos.x + new_size.x;
     else
       new_size.x /= (double_width ? 2 : 1);
-
     if (new_size.y <= 0)
       new_size.y = mRaw->dim.y - cam->cropPos.y + new_size.y;
   }
@@ -173,11 +176,12 @@ void RafDecoder::decodeMetaDataInternal(const CameraMetaData* meta) {
     rotated->metadata = mRaw->metadata;
     rotated->metadata.fujiRotationPos = rotationPos;
 
-    int dest_pitch = (int)rotated->pitch / 2;
-    auto *dst = (ushort16 *)rotated->getData(0, 0);
+    int dest_pitch = static_cast<int>(rotated->pitch) / 2;
+    auto* dst = reinterpret_cast<ushort16*>(rotated->getData(0, 0));
 
     for (int y = 0; y < new_size.y; y++) {
-      auto *src = (ushort16 *)mRaw->getData(crop_offset.x, crop_offset.y + y);
+      auto* src = reinterpret_cast<ushort16*>(
+          mRaw->getData(crop_offset.x, crop_offset.y + y));
       for (int x = 0; x < new_size.x; x++) {
         int h, w;
         if (alt_layout) { // Swapped x and y
@@ -250,5 +254,4 @@ void RafDecoder::decodeMetaDataInternal(const CameraMetaData* meta) {
   }
 }
 
-
-} // namespace RawSpeed
+} // namespace rawspeed

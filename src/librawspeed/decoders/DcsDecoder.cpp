@@ -28,10 +28,11 @@
 #include "tiff/TiffEntry.h"                         // for TiffEntry, TiffD...
 #include "tiff/TiffIFD.h"                           // for TiffIFD, TiffRoo...
 #include "tiff/TiffTag.h"                           // for TiffTag::GRAYRES...
+#include <cassert>                                  // for assert
 #include <memory>                                   // for unique_ptr
 #include <vector>                                   // for vector
 
-namespace RawSpeed {
+namespace rawspeed {
 
 class CameraMetaData;
 
@@ -56,6 +57,7 @@ RawImage DcsDecoder::decodeRawInternal() {
   if (!linearization || linearization->count != 256 || linearization->type != TIFF_SHORT)
     ThrowRDE("Couldn't find the linearization table");
 
+  assert(linearization != nullptr);
   auto table = linearization->getU16Array(256);
 
   if (!uncorrectedRawValues)
@@ -82,4 +84,4 @@ void DcsDecoder::decodeMetaDataInternal(const CameraMetaData* meta) {
   setMetaData(meta, "", 0);
 }
 
-} // namespace RawSpeed
+} // namespace rawspeed

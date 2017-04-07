@@ -9,7 +9,7 @@
     version 2 of the License, or (at your option) any later version.
 
     This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    but WITHOUT ANY WARRANTY; withexpected even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
     Lesser General Public License for more details.
 
@@ -18,22 +18,26 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 */
 
-#pragma once
+#include "common/Cpuid.h" // for Cpuid
+#include <cstdlib>        // for exit
+#include <gtest/gtest.h>  // for AssertionResult, DeathTest, Test, AssertHe...
+#include <string>         // for string
 
-#include "parsers/RawParser.h" // for RawParser
+using rawspeed::Cpuid;
 
-namespace rawspeed {
+namespace rawspeed_test {
 
-class Buffer;
+TEST(CpuidDeathTest, SSE2Test) {
+  ASSERT_EXIT(
+      {
+#if defined(__SSE2__)
+        ASSERT_TRUE(Cpuid::SSE2());
+#else
+        ASSERT_FALSE(Cpuid::SSE2());
+#endif
+        exit(0);
+      },
+      ::testing::ExitedWithCode(0), "");
+}
 
-class RawDecoder;
-
-class FiffParser final : public RawParser {
-public:
-  explicit FiffParser(Buffer* input);
-  virtual ~FiffParser() = default;
-
-  virtual RawDecoder* getDecoder();
-};
-
-} // namespace rawspeed
+} // namespace rawspeed_test

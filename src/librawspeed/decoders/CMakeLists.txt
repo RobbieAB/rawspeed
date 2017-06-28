@@ -19,6 +19,8 @@ FILE(GLOB DECODER_SOURCES
   "DngDecoderSlices.h"
   "ErfDecoder.cpp"
   "ErfDecoder.h"
+  "IiqDecoder.cpp"
+  "IiqDecoder.h"
   "KdcDecoder.cpp"
   "KdcDecoder.h"
   "MefDecoder.cpp"

@@ -29,6 +29,7 @@
 #include "decoders/DcsDecoder.h"         // for DcsDecoder
 #include "decoders/DngDecoder.h"         // for DngDecoder
 #include "decoders/ErfDecoder.h"         // for ErfDecoder
+#include "decoders/IiqDecoder.h"         // for IiqDecoder
 #include "decoders/KdcDecoder.h"         // for KdcDecoder
 #include "decoders/MefDecoder.h"         // for MefDecoder
 #include "decoders/MosDecoder.h"         // for MosDecoder
@@ -141,8 +142,11 @@ RawDecoder* TiffParser::makeDecoder(TiffRootIFDOwner root, Buffer& data) {
     if (make == "Hasselblad") {
       return new ThreefrDecoder(move(root), mInput);
     }
-    if (make == "Leaf" || make == "Phase One A/S") {
+    if (make == "Leaf" ) {
       return new MosDecoder(move(root), mInput);
+    }
+    if ( make == "Phase One A/S") {
+      return new IiqDecoder(move(root), mInput);
     }
   } catch (const TiffParserException&) {
     // Last ditch effort to identify Leaf cameras that don't have a Tiff Make set

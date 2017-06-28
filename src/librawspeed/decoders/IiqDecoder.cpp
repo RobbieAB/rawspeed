@@ -104,11 +104,11 @@ RawImage IiqDecoder::decodeRawInternal() {
         ThrowRDE("offset out of bounds");
 
       uint32 tag = getU32LE(insideTiff + offset + pos + 0);
-      uint32 type = getU32LE(insideTiff + offset + pos + 4);
-      uint32 len  = getU32LE(insideTiff + offset + pos + 8);
+      //uint32 type = getU32LE(insideTiff + offset + pos + 4);
+      //uint32 len  = getU32LE(insideTiff + offset + pos + 8);
       uint32 data = getU32LE(insideTiff + offset + pos + 12);
       
-      std::cout << std::hex << tag << std::dec << ":" << type << ":" << len << ":" << data << "\n" ;
+      //std::cout << std::hex << tag << std::dec << ":" << type << ":" << len << ":" << data << "\n" ;
 
       pos += 16;
       switch(tag) {
@@ -212,6 +212,9 @@ void IiqDecoder::DecodePhaseOneC(uint32 data_offset, uint32 strip_offset, uint32
     }
     for (uint32 col=0; col < width; col++) {
       ushort16 pixel ;
+      /* This next line is a simplified version of the equivalent in DCRAW. Ideally
+       * the additional logic should be ported over at some point. 
+       */
       pixel = img[col] << 2 ;
       if (pixel > 0) img[col] = pixel ;
     }
